@@ -1,7 +1,6 @@
 import sys
 import os
 
-# Fix module path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 import streamlit as st
@@ -9,38 +8,41 @@ import plotly.graph_objects as go
 import pandas as pd
 import ta
 import yfinance as yf
+import requests
 
 from agents.decision_agent import run_decision_agent
 
 st.set_page_config(page_title="QuantAgent India", page_icon="📈", layout="wide")
 
 # =====================
-# 🎨 NEXT LEVEL UI CSS
+# 🎨 WHITE + BLUE UI
 # =====================
 st.markdown("""
 <style>
-body { background-color: #0e1117; color: white; }
+body { background-color: #f5f7fb; color: #111827; }
 
 .card {
-    background-color: #161b22;
+    background-color: white;
     padding: 20px;
     border-radius: 12px;
     margin-bottom: 15px;
-    box-shadow: 0px 4px 15px rgba(0,0,0,0.4);
+    box-shadow: 0px 4px 12px rgba(0,0,0,0.08);
 }
 
-.metric { font-size: 22px; font-weight: bold; }
-.small-text { color: #9ca3af; font-size: 14px; }
+.metric { font-size: 22px; font-weight: bold; color: #1e3a8a; }
+.small-text { color: #6b7280; }
 
 .buy-box {
-    background: linear-gradient(135deg, #16a34a, #22c55e);
+    background: linear-gradient(135deg, #2563eb, #3b82f6);
+    color: white;
     padding: 25px;
     border-radius: 12px;
     text-align: center;
 }
 
 .sell-box {
-    background: linear-gradient(135deg, #dc2626, #ef4444);
+    background: linear-gradient(135deg, #ef4444, #f87171);
+    color: white;
     padding: 25px;
     border-radius: 12px;
     text-align: center;
@@ -49,7 +51,24 @@ body { background-color: #0e1117; color: white; }
 """, unsafe_allow_html=True)
 
 # =====================
-# DATA LOADING (FIXED)
+# 📡 TELEGRAM ALERT (HARDCODED)
+# =====================
+def send_telegram_alert(message):
+    try:
+        BOT_TOKEN = "8573595454:AAGnZr4AZnJc-Ai5zx0l71mMr5FxU7NNJuc"
+        CHAT_ID = "8548569849"
+
+        url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+
+        requests.post(url, data={
+            "chat_id": CHAT_ID,
+            "text": message
+        })
+    except:
+        pass
+
+# =====================
+# DATA LOADING
 # =====================
 def load_stock_data(ticker):
     try:
@@ -59,30 +78,22 @@ def load_stock_data(ticker):
     except:
         pass
 
-    # CSV fallback
     path = f"data/{ticker}_daily.csv"
     df = pd.read_csv(path)
 
     df = df[df.iloc[:, 0] != 'Ticker']
-    df = df[df.iloc[:, 0] != 'Date']
-
     df.columns = [c.strip() for c in df.columns]
+
     df.rename(columns={df.columns[0]: 'Date'}, inplace=True)
-
     df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
-    df = df.dropna(subset=['Date'])
-    df.set_index('Date', inplace=True)
-
-    for col in ['Open','High','Low','Close','Volume']:
-        if col in df.columns:
-            df[col] = pd.to_numeric(df[col], errors='coerce')
 
     df.dropna(inplace=True)
+    df.set_index('Date', inplace=True)
+
     return df
 
-
 # =====================
-# 📈 MAIN CHART (PRO)
+# 📈 CHART
 # =====================
 def build_chart(ticker, result):
     df = load_stock_data(ticker)
@@ -99,37 +110,19 @@ def build_chart(ticker, result):
         high=recent['High'],
         low=recent['Low'],
         close=recent['Close'],
-        increasing_line_color='#22c55e',
+        increasing_line_color='#3b82f6',
         decreasing_line_color='#ef4444'
     ))
 
-    fig.add_trace(go.Scatter(
-        x=recent.index, y=recent['EMA20'],
-        line=dict(color='#3b82f6'), name='EMA20'
-    ))
+    fig.add_trace(go.Scatter(x=recent.index, y=recent['EMA20'], name="EMA20", line=dict(color='#2563eb')))
+    fig.add_trace(go.Scatter(x=recent.index, y=recent['EMA50'], name="EMA50", line=dict(color='#60a5fa')))
 
-    fig.add_trace(go.Scatter(
-        x=recent.index, y=recent['EMA50'],
-        line=dict(color='#f59e0b'), name='EMA50'
-    ))
-
-    if 'support' in result:
-        fig.add_hline(y=result['support'], line_dash="dot", line_color="green")
-    if 'resistance' in result:
-        fig.add_hline(y=result['resistance'], line_dash="dot", line_color="red")
-
-    fig.update_layout(
-        template="plotly_dark",
-        height=500,
-        hovermode="x unified",
-        xaxis_rangeslider_visible=False
-    )
+    fig.update_layout(template="plotly_white", height=500, hovermode="x unified")
 
     return fig
 
-
 # =====================
-# 📉 RSI CHART
+# 📉 RSI
 # =====================
 def build_rsi_chart(ticker):
     df = load_stock_data(ticker)
@@ -138,27 +131,25 @@ def build_rsi_chart(ticker):
     rsi = ta.momentum.RSIIndicator(recent['Close'], 14).rsi()
 
     fig = go.Figure()
-
-    fig.add_trace(go.Scatter(x=recent.index, y=rsi, line=dict(color='#3b82f6')))
+    fig.add_trace(go.Scatter(x=recent.index, y=rsi, line=dict(color='#2563eb')))
 
     fig.add_hline(y=70, line_dash="dash", line_color="red")
     fig.add_hline(y=30, line_dash="dash", line_color="green")
 
-    fig.update_layout(template="plotly_dark", height=250)
+    fig.update_layout(template="plotly_white", height=250)
 
     return fig
-
 
 # =====================
 # HEADER
 # =====================
 st.markdown("""
-<h1>📈 QuantAgent India</h1>
-<p style="color:gray;">AI-powered stock analysis platform</p>
+<h1 style="color:#1e3a8a;">📈 QuantAgent India</h1>
+<p style="color:#6b7280;">AI-powered stock analysis platform</p>
 """, unsafe_allow_html=True)
 
 # =====================
-# STOCK LIST
+# STOCKS
 # =====================
 STOCKS = [
     "RELIANCE","TCS","INFY","HDFCBANK","ICICIBANK",
@@ -170,62 +161,46 @@ STOCKS = [
 
 col1, col2, col3 = st.columns([3,1,1])
 
-with col1:
-    selected_stock = st.selectbox("Select Stock", STOCKS)
-
-with col2:
-    timeframe = st.selectbox("Timeframe", ["Daily","Weekly"])
-
-with col3:
-    run_button = st.button("▶ Run Analysis")
+selected_stock = col1.selectbox("Stock", STOCKS)
+timeframe = col2.selectbox("Timeframe", ["Daily","Weekly"])
+run_button = col3.button("▶ Run")
 
 st.markdown("---")
 
 # =====================
-# MAIN EXECUTION
+# MAIN
 # =====================
 if run_button:
-    progress = st.progress(0)
-
     try:
-        progress.progress(30)
-        st.write("Fetching data...")
-
-        progress.progress(60)
-        st.write("Running AI...")
-
         result = run_decision_agent(selected_stock)
 
-        progress.progress(100)
-
-        # 🎯 Decision
-        st.markdown("## 🎯 AI Decision")
+        st.markdown("## 🎯 Decision")
 
         if result['decision'] == "BUY":
             st.markdown(f"<div class='buy-box'><h2>BUY 📈</h2>{result['confidence']}</div>", unsafe_allow_html=True)
+            st.toast("🚀 BUY Signal Generated!")
+            send_telegram_alert(f"🚀 BUY SIGNAL\n{selected_stock}\nConfidence: {result['confidence']}")
         else:
             st.markdown(f"<div class='sell-box'><h2>SELL 📉</h2>{result['confidence']}</div>", unsafe_allow_html=True)
+            st.toast("⚠️ SELL Signal Generated!")
+            send_telegram_alert(f"⚠️ SELL SIGNAL\n{selected_stock}\nConfidence: {result['confidence']}")
 
-        # 📊 Metrics
+        # Metrics
         col1, col2, col3 = st.columns(3)
 
         col1.markdown(f"<div class='card'><div class='small-text'>Risk</div><div class='metric'>{result['risk_level']}</div></div>", unsafe_allow_html=True)
         col2.markdown(f"<div class='card'><div class='small-text'>RR Ratio</div><div class='metric'>{result['risk_reward_ratio']}</div></div>", unsafe_allow_html=True)
         col3.markdown(f"<div class='card'><div class='small-text'>Entry</div><div class='metric'>₹{result['entry_price']}</div></div>", unsafe_allow_html=True)
 
-        # 🧠 Reasoning
-        st.markdown("## 🧠 AI Reasoning")
+        st.markdown("## 🧠 Reasoning")
         st.markdown(f"<div class='card'>{result['reasoning']}</div>", unsafe_allow_html=True)
 
-        # 📉 Charts
         st.markdown("## 📉 Market Analysis")
-
         st.plotly_chart(build_chart(selected_stock, result), use_container_width=True)
         st.plotly_chart(build_rsi_chart(selected_stock), use_container_width=True)
 
     except Exception as e:
-        st.error(f"Error: {e}")
-        st.info("Check CSV format or internet connection")
+        st.error(e)
 
 else:
-    st.markdown("<div class='card'><h3>Welcome 🚀</h3>Select a stock to start</div>", unsafe_allow_html=True)
+    st.markdown("<div class='card'>Select stock and run analysis</div>", unsafe_allow_html=True)
