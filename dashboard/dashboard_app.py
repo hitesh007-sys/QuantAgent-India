@@ -197,6 +197,8 @@ if st.button("▶ Run Analysis"):
     df = load_stock_data(selected_stock, timeframe)
 
 # 🔥 FORCE CHART DISPLAY
+df = load_stock_data(selected_stock, timeframe)
+
 if df is None or df.empty:
     st.error("⚠️ No market data available (yfinance issue)")
 else:
