@@ -110,7 +110,15 @@ def build_rsi_chart(df):
 # =====================
 # HEADER
 # =====================
-st.title("📈 QuantAgent India")
+st.markdown("""
+<div style="text-align:center;">
+<h1>📈 QuantAgent India</h1>
+<p style='color: #9ca3af; font-size: 18px;'>
+ML Stock Analysis<br>
+Submitted by Group-13
+</p>
+</div>
+""", unsafe_allow_html=True)
 
 STOCKS = [
     "RELIANCE","TCS","INFY","HDFCBANK","ICICIBANK",
