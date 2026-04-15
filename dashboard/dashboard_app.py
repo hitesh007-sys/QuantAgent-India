@@ -55,17 +55,22 @@ body { background-color: #f5f7fb; color: #111827; }
 # =====================
 def send_telegram_alert(message):
     try:
+        import requests
+
         BOT_TOKEN = "8573595454:AAGnZr4AZnJc-Ai5zx0l71mMr5FxU7NNJuc"
         CHAT_ID = "8548569849"
 
         url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
 
-        requests.post(url, data={
-            "chat_id": CHAT_ID,
-            "text": message
-        })
-    except:
-        pass
+        # ✅ Add timeout (CRITICAL FIX)
+        requests.post(
+            url,
+            data={"chat_id": CHAT_ID, "text": message},
+            timeout=3   # ⬅️ prevents freezing
+        )
+
+    except Exception as e:
+        print("Telegram failed:", e)
 
 # =====================
 # DATA LOADING
