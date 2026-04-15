@@ -77,18 +77,55 @@ def load_stock_data(ticker, timeframe):
     try:
         interval = "1d" if timeframe == "Daily" else "1wk"
 
+        # Try yfinance first
         df = yf.download(f"{ticker}.NS", period="3mo", interval=interval, progress=False)
 
-        if df is None or df.empty:
-            return pd.DataFrame()
+        if df is not None and not df.empty:
+            df = df[['Open','High','Low','Close','Volume']]
+            df.dropna(inplace=True)
+            return df
 
-        df = df[['Open','High','Low','Close','Volume']]
+    except:
+        pass
+
+    # =====================
+    # 🔥 CSV FALLBACK FIXED
+    # =====================
+    try:
+        file_path = f"data/{ticker}_daily.csv"
+
+        df = pd.read_csv(file_path)
+
+        # ❌ REMOVE BAD ROWS
+        df = df[~df.iloc[:, 0].isin(["Price", "Ticker", "Date"])]
+
+        # ✅ RENAME COLUMNS PROPERLY
+        df.columns = ["Date", "Close", "High", "Low", "Open", "Volume"]
+
+        # ✅ FIX DATE
+        df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
+
+        # ✅ CONVERT NUMBERS
+        for col in ["Open", "High", "Low", "Close", "Volume"]:
+            df[col] = pd.to_numeric(df[col], errors="coerce")
+
         df.dropna(inplace=True)
+        df.set_index("Date", inplace=True)
+
+        # ✅ WEEKLY SUPPORT
+        if timeframe == "Weekly":
+            df = df.resample('W').agg({
+                'Open': 'first',
+                'High': 'max',
+                'Low': 'min',
+                'Close': 'last',
+                'Volume': 'sum'
+            }).dropna()
 
         return df
 
     except Exception as e:
-        st.error(f"Data error: {e}")
+        st.error(f"CSV error: {e}")
         return pd.DataFrame()
 
 # =====================
