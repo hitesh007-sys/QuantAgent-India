@@ -34,7 +34,6 @@ body { background-color: #0e1117; color: white; }
     padding: 25px;
     border-radius: 12px;
     text-align: center;
-    font-size: 20px;
 }
 
 .sell-box {
@@ -42,13 +41,23 @@ body { background-color: #0e1117; color: white; }
     padding: 25px;
     border-radius: 12px;
     text-align: center;
-    font-size: 20px;
 }
 </style>
 """, unsafe_allow_html=True)
 
 # =====================
-# 📡 TELEGRAM SAFE
+# HEADER
+# =====================
+st.markdown("""
+<h1>📈 QuantAgent India</h1>
+<p style='color: #9ca3af; font-size: 18px;'>
+ML Stock Analysis<br>
+Submitted by Group-13
+</p>
+""", unsafe_allow_html=True)
+
+# =====================
+# TELEGRAM
 # =====================
 def send_telegram_alert(message):
     try:
@@ -62,19 +71,28 @@ def send_telegram_alert(message):
         pass
 
 # =====================
-# 📊 DATA
+# LOAD DATA (FIXED)
 # =====================
 def load_stock_data(ticker, timeframe):
-    interval = "1d" if timeframe == "Daily" else "1wk"
-
     try:
-        df = yf.download(f"{ticker}.NS", period="3mo", interval=interval)
-        return df[['Open','High','Low','Close','Volume']]
-    except:
+        interval = "1d" if timeframe == "Daily" else "1wk"
+
+        df = yf.download(f"{ticker}.NS", period="3mo", interval=interval, progress=False)
+
+        if df is None or df.empty:
+            return pd.DataFrame()
+
+        df = df[['Open','High','Low','Close','Volume']]
+        df.dropna(inplace=True)
+
+        return df
+
+    except Exception as e:
+        st.error(f"Data error: {e}")
         return pd.DataFrame()
 
 # =====================
-# 📈 CHART
+# CHART
 # =====================
 def build_chart(df):
     fig = go.Figure()
@@ -92,34 +110,27 @@ def build_chart(df):
     return fig
 
 # =====================
-# 📉 RSI
+# RSI
 # =====================
 def build_rsi_chart(df):
-    rsi = ta.momentum.RSIIndicator(df['Close'], 14).rsi()
+    try:
+        rsi = ta.momentum.RSIIndicator(df['Close'], 14).rsi()
 
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(x=df.index, y=rsi))
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(x=df.index, y=rsi))
 
-    fig.add_hline(y=70)
-    fig.add_hline(y=30)
+        fig.add_hline(y=70)
+        fig.add_hline(y=30)
 
-    fig.update_layout(template="plotly_dark", height=250)
+        fig.update_layout(template="plotly_dark", height=250)
 
-    return fig
+        return fig
+    except:
+        return go.Figure()
 
 # =====================
-# HEADER
+# INPUTS
 # =====================
-st.markdown("""
-<div style="text-align:center;">
-<h1>📈 QuantAgent India</h1>
-<p style='color: #9ca3af; font-size: 18px;'>
-ML Stock Analysis<br>
-Submitted by Group-13
-</p>
-</div>
-""", unsafe_allow_html=True)
-
 STOCKS = [
     "RELIANCE","TCS","INFY","HDFCBANK","ICICIBANK",
     "HINDUNILVR","SBIN","BHARTIARTL","WIPRO","LT",
@@ -142,64 +153,35 @@ if st.button("▶ Run Analysis"):
 
     st.write("⏳ Running analysis...")
 
-    # =====================
-    # SAFE AGENT
-    # =====================
     try:
-        start = time.time()
         result = run_decision_agent(selected_stock)
-
-        if time.time() - start > 10:
-            raise Exception("Timeout")
-
     except:
-        st.warning("⚠️ Agent failed, using fallback")
-
+        st.warning("Agent failed, using fallback")
         result = {
             "decision": "BUY",
             "confidence": "Medium",
             "risk_level": "Medium",
             "risk_reward_ratio": "1:1",
             "entry_price": 1000,
-            "reasoning": "Fallback result"
+            "reasoning": "Fallback"
         }
 
     # =====================
-    # DECISION BOX
+    # DECISION
     # =====================
     if result["decision"] == "BUY":
         st.markdown(f"<div class='buy-box'>BUY 📈<br>{result['confidence']}</div>", unsafe_allow_html=True)
-        send_telegram_alert(f"BUY {selected_stock}")
-
     else:
         st.markdown(f"<div class='sell-box'>SELL 📉<br>{result['confidence']}</div>", unsafe_allow_html=True)
-        send_telegram_alert(f"SELL {selected_stock}")
 
     # =====================
-    # CARDS (FIXED UI)
+    # CARDS
     # =====================
     col1, col2, col3 = st.columns(3)
 
-    col1.markdown(f"""
-    <div class="card">
-    <h4>⚠️ Risk</h4>
-    <h2>{result['risk_level']}</h2>
-    </div>
-    """, unsafe_allow_html=True)
-
-    col2.markdown(f"""
-    <div class="card">
-    <h4>📊 RR Ratio</h4>
-    <h2>{result['risk_reward_ratio']}</h2>
-    </div>
-    """, unsafe_allow_html=True)
-
-    col3.markdown(f"""
-    <div class="card">
-    <h4>💰 Entry</h4>
-    <h2>₹{result['entry_price']}</h2>
-    </div>
-    """, unsafe_allow_html=True)
+    col1.markdown(f"<div class='card'><h4>Risk</h4><h2>{result['risk_level']}</h2></div>", unsafe_allow_html=True)
+    col2.markdown(f"<div class='card'><h4>RR</h4><h2>{result['risk_reward_ratio']}</h2></div>", unsafe_allow_html=True)
+    col3.markdown(f"<div class='card'><h4>Entry</h4><h2>₹{result['entry_price']}</h2></div>", unsafe_allow_html=True)
 
     # =====================
     # REASONING
@@ -208,13 +190,22 @@ if st.button("▶ Run Analysis"):
     st.write(result["reasoning"])
 
     # =====================
-    # CHARTS
+    # CHARTS (FORCED SHOW)
     # =====================
+    st.markdown("## 📈 Market Analysis")
+
     df = load_stock_data(selected_stock, timeframe)
 
-    if not df.empty:
+# 🔥 FORCE CHART DISPLAY
+if df is None or df.empty:
+    st.error("⚠️ No market data available (yfinance issue)")
+else:
+    try:
         st.markdown("## 📈 Price Chart")
         st.plotly_chart(build_chart(df), use_container_width=True)
 
-        st.markdown("## 📉 RSI")
+        st.markdown("## 📉 RSI Indicator")
         st.plotly_chart(build_rsi_chart(df), use_container_width=True)
+
+    except Exception as e:
+        st.error(f"Chart error: {e}")
