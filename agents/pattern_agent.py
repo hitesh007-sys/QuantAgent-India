@@ -2,17 +2,7 @@ import sys
 sys.path.append('tools')
 
 import streamlit as st
-from groq import Groq
 from generate_chart import describe_chart_pattern
-
-
-# ✅ Ensure API key exists (important for deployment)
-if "GROQ_API_KEY" not in st.secrets:
-    st.error("❌ GROQ_API_KEY not found in Streamlit Secrets. Please add it.")
-    st.stop()
-
-# ✅ Correct way to initialize client in Streamlit Cloud
-client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 
 
 PATTERN_LIBRARY = """
@@ -32,11 +22,24 @@ PATTERN_LIBRARY = """
 """
 
 
+# ✅ Lazy loading client (CRITICAL FIX)
+def get_client():
+    if "GROQ_API_KEY" not in st.secrets:
+        st.error("❌ GROQ_API_KEY not found in Streamlit Secrets.")
+        st.stop()
+
+    from groq import Groq
+    return Groq(api_key=st.secrets["GROQ_API_KEY"])
+
+
 def analyze_pattern(ticker_name: str) -> str:
     """
     Analyzes chart pattern for a stock using Groq LLM.
     Returns plain English pattern analysis.
     """
+
+    # ✅ create client ONLY when needed
+    client = get_client()
 
     chart_description = describe_chart_pattern(ticker_name)
 
@@ -56,6 +59,9 @@ Based on the price data above:
 
 Reply in 3 short sentences maximum. Be specific and clear.
 """
+
+    # ✅ Debug visibility (optional but helpful)
+    st.write("🔍 Analyzing pattern...")
 
     response = client.chat.completions.create(
         model="llama-3.3-70b-versatile",
