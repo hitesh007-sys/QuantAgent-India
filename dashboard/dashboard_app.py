@@ -8,6 +8,7 @@ import streamlit as st
 import plotly.graph_objects as go
 import pandas as pd
 import ta
+import yfinance as yf
 
 # ✅ Correct import
 from agents.decision_agent import run_decision_agent
@@ -24,6 +25,15 @@ st.set_page_config(
 # Helper Functions
 # =====================
 def load_stock_data(ticker_name: str) -> pd.DataFrame:
+    # ✅ Try real-time data first
+    try:
+        df = yf.download(f"{ticker_name}.NS", period="3mo", interval="1d")
+        if not df.empty:
+            return df
+    except:
+        pass
+
+    # ✅ Fallback to CSV
     path = f"data/{ticker_name}_daily.csv"
     df = pd.read_csv(path)
 
@@ -103,6 +113,7 @@ def build_chart(ticker: str, result: dict) -> go.Figure:
 def build_rsi_chart(ticker: str) -> go.Figure:
     df = load_stock_data(ticker)
     recent = df.tail(60)
+
     rsi_series = ta.momentum.RSIIndicator(
         recent['Close'].squeeze(), window=14
     ).rsi()
@@ -119,13 +130,13 @@ def build_rsi_chart(ticker: str) -> go.Figure:
 
 
 # =====================
-# Sidebar (UNCHANGED UI)
+# Sidebar
 # =====================
 with st.sidebar:
     st.markdown("## 📈 QuantAgent")
 
 # =====================
-# Main UI (UNCHANGED)
+# Main UI
 # =====================
 st.markdown("""
 <div class="header-banner">
@@ -134,9 +145,13 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
+# ✅ RESTORED FULL 25 STOCKS
 STOCKS = [
     "RELIANCE", "TCS", "INFY", "HDFCBANK", "ICICIBANK",
-    "SBIN", "WIPRO", "LT", "ITC", "SUNPHARMA"
+    "HINDUNILVR", "SBIN", "BHARTIARTL", "WIPRO", "LT",
+    "ADANIENT", "KOTAKBANK", "AXISBANK", "HCLTECH", "ITC",
+    "SUNPHARMA", "MARUTI", "BAJFINANCE", "TECHM", "TITAN",
+    "ULTRACEMCO", "NESTLEIND", "POWERGRID", "ONGC", "NTPC"
 ]
 
 col1, col2, col3 = st.columns([3, 1, 1])
@@ -153,22 +168,36 @@ with col3:
 st.markdown("<br>", unsafe_allow_html=True)
 
 # =====================
-# MAIN LOGIC (FIXED)
+# MAIN LOGIC
 # =====================
-
 if run_button:
     with st.spinner(f"🤖 Running all agents for {selected_stock}..."):
         try:
-            # ✅ ADDED DEBUG (important)
             st.write("🚀 Running analysis...")
 
             result = run_decision_agent(selected_stock)
 
             st.write("✅ Analysis complete")
 
-            # ===== your UI continues exactly =====
-            st.json(result)
+            # 🎯 Decision UI
+            st.markdown("## 🎯 Final Trading Decision")
 
+            if result['decision'] == "BUY":
+                st.success(f"BUY 📈 | Confidence: {result['confidence']}")
+            else:
+                st.error(f"SELL 📉 | Confidence: {result['confidence']}")
+
+            # 📊 Metrics
+            col1, col2, col3 = st.columns(3)
+            col1.metric("Risk Level", result['risk_level'])
+            col2.metric("Risk/Reward", result['risk_reward_ratio'])
+            col3.metric("Entry Price", f"₹{result['entry_price']}")
+
+            # 🧠 Reasoning
+            st.markdown("### 🧠 AI Reasoning")
+            st.info(result['reasoning'])
+
+            # 📉 Charts
             price_chart = build_chart(selected_stock, result)
             st.plotly_chart(price_chart, use_container_width=True)
 
@@ -177,8 +206,6 @@ if run_button:
 
         except Exception as e:
             st.error(f"❌ Error: {str(e)}")
-
-            # ✅ FIXED MESSAGE
             st.info("Check Streamlit Secrets → GROQ_API_KEY")
 
 else:
