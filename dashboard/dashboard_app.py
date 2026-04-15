@@ -15,34 +15,31 @@ from agents.decision_agent import run_decision_agent
 st.set_page_config(page_title="QuantAgent India", page_icon="📈", layout="wide")
 
 # =====================
-# 🎨 WHITE + BLUE UI
+# 🎨 DARK UI (RESTORED)
 # =====================
 st.markdown("""
 <style>
-body { background-color: #f5f7fb; color: #111827; }
+body { background-color: #0e1117; color: white; }
 
 .card {
-    background-color: white;
+    background-color: #161b22;
     padding: 20px;
     border-radius: 12px;
     margin-bottom: 15px;
-    box-shadow: 0px 4px 12px rgba(0,0,0,0.08);
 }
 
-.metric { font-size: 22px; font-weight: bold; color: #1e3a8a; }
-.small-text { color: #6b7280; }
+.metric { font-size: 22px; font-weight: bold; }
+.small-text { color: #9ca3af; }
 
 .buy-box {
-    background: linear-gradient(135deg, #2563eb, #3b82f6);
-    color: white;
+    background: linear-gradient(135deg, #16a34a, #22c55e);
     padding: 25px;
     border-radius: 12px;
     text-align: center;
 }
 
 .sell-box {
-    background: linear-gradient(135deg, #ef4444, #f87171);
-    color: white;
+    background: linear-gradient(135deg, #dc2626, #ef4444);
     padding: 25px;
     border-radius: 12px;
     text-align: center;
@@ -51,29 +48,25 @@ body { background-color: #f5f7fb; color: #111827; }
 """, unsafe_allow_html=True)
 
 # =====================
-# 📡 TELEGRAM ALERT (HARDCODED)
+# 📡 TELEGRAM ALERT (FIXED)
 # =====================
 def send_telegram_alert(message):
     try:
-        import requests
-
-        BOT_TOKEN = "8573595454:AAGnZr4AZnJc-Ai5zx0l71mMr5FxU7NNJuc"
-        CHAT_ID = "8548569849"
+        BOT_TOKEN = "YOUR_NEW_TOKEN"
+        CHAT_ID = "YOUR_CHAT_ID"
 
         url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
 
-        # ✅ Add timeout (CRITICAL FIX)
         requests.post(
             url,
             data={"chat_id": CHAT_ID, "text": message},
-            timeout=3   # ⬅️ prevents freezing
+            timeout=3   # ✅ prevents freezing
         )
-
     except Exception as e:
         print("Telegram failed:", e)
 
 # =====================
-# DATA LOADING
+# DATA LOADING (CLEAN)
 # =====================
 def load_stock_data(ticker):
     try:
@@ -95,6 +88,13 @@ def load_stock_data(ticker):
     df.dropna(inplace=True)
     df.set_index('Date', inplace=True)
 
+    # ✅ ensure numeric
+    for col in ['Open','High','Low','Close','Volume']:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors='coerce')
+
+    df.dropna(inplace=True)
+
     return df
 
 # =====================
@@ -102,6 +102,10 @@ def load_stock_data(ticker):
 # =====================
 def build_chart(ticker, result):
     df = load_stock_data(ticker)
+
+    if df is None or df.empty:
+        return go.Figure()
+
     recent = df.tail(100)
 
     recent['EMA20'] = ta.trend.EMAIndicator(recent['Close'], 20).ema_indicator()
@@ -114,15 +118,22 @@ def build_chart(ticker, result):
         open=recent['Open'],
         high=recent['High'],
         low=recent['Low'],
-        close=recent['Close'],
-        increasing_line_color='#3b82f6',
-        decreasing_line_color='#ef4444'
+        close=recent['Close']
     ))
 
-    fig.add_trace(go.Scatter(x=recent.index, y=recent['EMA20'], name="EMA20", line=dict(color='#2563eb')))
-    fig.add_trace(go.Scatter(x=recent.index, y=recent['EMA50'], name="EMA50", line=dict(color='#60a5fa')))
+    fig.add_trace(go.Scatter(x=recent.index, y=recent['EMA20'], name="EMA20"))
+    fig.add_trace(go.Scatter(x=recent.index, y=recent['EMA50'], name="EMA50"))
 
-    fig.update_layout(template="plotly_white", height=500, hovermode="x unified")
+    # ✅ safe support/resistance
+    try:
+        if 'support' in result:
+            fig.add_hline(y=float(result['support']))
+        if 'resistance' in result:
+            fig.add_hline(y=float(result['resistance']))
+    except:
+        pass
+
+    fig.update_layout(template="plotly_dark", height=500)
 
     return fig
 
@@ -131,31 +142,29 @@ def build_chart(ticker, result):
 # =====================
 def build_rsi_chart(ticker):
     df = load_stock_data(ticker)
+
+    if df is None or df.empty:
+        return go.Figure()
+
     recent = df.tail(100)
 
     rsi = ta.momentum.RSIIndicator(recent['Close'], 14).rsi()
 
     fig = go.Figure()
-    fig.add_trace(go.Scatter(x=recent.index, y=rsi, line=dict(color='#2563eb')))
+    fig.add_trace(go.Scatter(x=recent.index, y=rsi))
 
-    fig.add_hline(y=70, line_dash="dash", line_color="red")
-    fig.add_hline(y=30, line_dash="dash", line_color="green")
+    fig.add_hline(y=70)
+    fig.add_hline(y=30)
 
-    fig.update_layout(template="plotly_white", height=250)
+    fig.update_layout(template="plotly_dark", height=250)
 
     return fig
 
 # =====================
 # HEADER
 # =====================
-st.markdown("""
-<h1 style="color:#1e3a8a;">📈 QuantAgent India</h1>
-<p style="color:#6b7280;">AI-powered stock analysis platform</p>
-""", unsafe_allow_html=True)
+st.markdown("<h1>📈 QuantAgent India</h1>", unsafe_allow_html=True)
 
-# =====================
-# STOCKS
-# =====================
 STOCKS = [
     "RELIANCE","TCS","INFY","HDFCBANK","ICICIBANK",
     "HINDUNILVR","SBIN","BHARTIARTL","WIPRO","LT",
@@ -179,28 +188,42 @@ if run_button:
     try:
         result = run_decision_agent(selected_stock)
 
+        # ✅ FIX TYPE ERROR
+        try:
+            result['entry_price'] = float(result.get('entry_price', 0))
+        except:
+            result['entry_price'] = 0
+
+        try:
+            if 'support' in result:
+                result['support'] = float(result['support'])
+            if 'resistance' in result:
+                result['resistance'] = float(result['resistance'])
+        except:
+            pass
+
         st.markdown("## 🎯 Decision")
 
         if result['decision'] == "BUY":
             st.markdown(f"<div class='buy-box'><h2>BUY 📈</h2>{result['confidence']}</div>", unsafe_allow_html=True)
             st.toast("🚀 BUY Signal Generated!")
-            send_telegram_alert(f"🚀 BUY SIGNAL\n{selected_stock}\nConfidence: {result['confidence']}")
+            send_telegram_alert(f"BUY {selected_stock} {result['confidence']}")
+
         else:
             st.markdown(f"<div class='sell-box'><h2>SELL 📉</h2>{result['confidence']}</div>", unsafe_allow_html=True)
             st.toast("⚠️ SELL Signal Generated!")
-            send_telegram_alert(f"⚠️ SELL SIGNAL\n{selected_stock}\nConfidence: {result['confidence']}")
+            send_telegram_alert(f"SELL {selected_stock} {result['confidence']}")
 
         # Metrics
         col1, col2, col3 = st.columns(3)
 
-        col1.markdown(f"<div class='card'><div class='small-text'>Risk</div><div class='metric'>{result['risk_level']}</div></div>", unsafe_allow_html=True)
-        col2.markdown(f"<div class='card'><div class='small-text'>RR Ratio</div><div class='metric'>{result['risk_reward_ratio']}</div></div>", unsafe_allow_html=True)
-        col3.markdown(f"<div class='card'><div class='small-text'>Entry</div><div class='metric'>₹{result['entry_price']}</div></div>", unsafe_allow_html=True)
+        col1.markdown(f"<div class='card'>Risk: {result['risk_level']}</div>", unsafe_allow_html=True)
+        col2.markdown(f"<div class='card'>RR: {result['risk_reward_ratio']}</div>", unsafe_allow_html=True)
+        col3.markdown(f"<div class='card'>Entry: ₹{result['entry_price']}</div>", unsafe_allow_html=True)
 
-        st.markdown("## 🧠 Reasoning")
+        st.markdown("## 🧠 Reason")
         st.markdown(f"<div class='card'>{result['reasoning']}</div>", unsafe_allow_html=True)
 
-        st.markdown("## 📉 Market Analysis")
         st.plotly_chart(build_chart(selected_stock, result), use_container_width=True)
         st.plotly_chart(build_rsi_chart(selected_stock), use_container_width=True)
 
