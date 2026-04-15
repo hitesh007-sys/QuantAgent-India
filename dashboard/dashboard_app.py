@@ -10,9 +10,7 @@ import pandas as pd
 import ta
 import yfinance as yf
 
-# ✅ Correct import
 from agents.decision_agent import run_decision_agent
-
 
 st.set_page_config(
     page_title="QuantAgent India",
@@ -22,10 +20,43 @@ st.set_page_config(
 )
 
 # =====================
+# 🔥 NEXT-LEVEL UI CSS
+# =====================
+st.markdown("""
+<style>
+body { background-color: #0e1117; color: white; }
+
+.card {
+    background-color: #161b22;
+    padding: 20px;
+    border-radius: 12px;
+    margin-bottom: 15px;
+    box-shadow: 0px 4px 15px rgba(0,0,0,0.4);
+}
+
+.metric { font-size: 22px; font-weight: bold; }
+.small-text { color: #9ca3af; font-size: 14px; }
+
+.buy-box {
+    background: linear-gradient(135deg, #16a34a, #22c55e);
+    padding: 25px;
+    border-radius: 12px;
+    text-align: center;
+}
+
+.sell-box {
+    background: linear-gradient(135deg, #dc2626, #ef4444);
+    padding: 25px;
+    border-radius: 12px;
+    text-align: center;
+}
+</style>
+""", unsafe_allow_html=True)
+
+# =====================
 # Helper Functions
 # =====================
-def load_stock_data(ticker_name: str) -> pd.DataFrame:
-    # ✅ Try real-time data first
+def load_stock_data(ticker_name: str):
     try:
         df = yf.download(f"{ticker_name}.NS", period="3mo", interval="1d")
         if not df.empty:
@@ -33,49 +64,18 @@ def load_stock_data(ticker_name: str) -> pd.DataFrame:
     except:
         pass
 
-    # ✅ Fallback to CSV
     path = f"data/{ticker_name}_daily.csv"
     df = pd.read_csv(path)
 
-    if df.iloc[0].astype(str).str.contains(
-        'Ticker|Price|RELIANCE|TCS|NS'
-    ).any():
-        df = df.iloc[1:].reset_index(drop=True)
-
     df.columns = [c.strip() for c in df.columns]
-    first_col = df.columns[0]
-    df = df.rename(columns={first_col: 'Date'})
-    df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
-    df = df.dropna(subset=['Date'])
-    df = df.set_index('Date')
+    df.rename(columns={df.columns[0]: 'Date'}, inplace=True)
+    df['Date'] = pd.to_datetime(df['Date'])
+    df.set_index('Date', inplace=True)
 
-    for col in ['Open', 'High', 'Low', 'Close', 'Volume']:
-        if col in df.columns:
-            df[col] = pd.to_numeric(df[col], errors='coerce')
-
-    df.dropna(inplace=True)
     return df
 
 
-def get_signal(value, indicator):
-    if indicator == "RSI":
-        if value > 70: return "Overbought", "bearish"
-        elif value < 30: return "Oversold", "bullish"
-        else: return "Neutral", "neutral"
-    elif indicator == "MACD":
-        if value > 0: return "Bullish", "bullish"
-        else: return "Bearish", "bearish"
-    elif indicator == "ROC":
-        if value > 0: return "Rising", "bullish"
-        else: return "Falling", "bearish"
-    elif indicator == "Stoch":
-        if value > 80: return "Overbought", "bearish"
-        elif value < 20: return "Oversold", "bullish"
-        else: return "Neutral", "neutral"
-    return "Neutral", "neutral"
-
-
-def build_chart(ticker: str, result: dict) -> go.Figure:
+def build_chart(ticker, result):
     df = load_stock_data(ticker)
     recent = df.tail(60)
 
@@ -87,44 +87,24 @@ def build_chart(ticker: str, result: dict) -> go.Figure:
         high=recent['High'],
         low=recent['Low'],
         close=recent['Close'],
-        name='Price',
         increasing_line_color='#10b981',
-        decreasing_line_color='#ef4444',
-        increasing_fillcolor='#10b981',
-        decreasing_fillcolor='#ef4444'
+        decreasing_line_color='#ef4444'
     ))
 
-    fig.add_hline(
-        y=result['support'],
-        line_dash="dash",
-        line_color="#10b981",
-        line_width=1.5,
-    )
-    fig.add_hline(
-        y=result['resistance'],
-        line_dash="dash",
-        line_color="#ef4444",
-        line_width=1.5,
-    )
+    fig.add_hline(y=result['support'], line_dash="dash")
+    fig.add_hline(y=result['resistance'], line_dash="dash")
 
     return fig
 
 
-def build_rsi_chart(ticker: str) -> go.Figure:
+def build_rsi_chart(ticker):
     df = load_stock_data(ticker)
     recent = df.tail(60)
 
-    rsi_series = ta.momentum.RSIIndicator(
-        recent['Close'].squeeze(), window=14
-    ).rsi()
+    rsi = ta.momentum.RSIIndicator(recent['Close'], window=14).rsi()
 
     fig = go.Figure()
-    fig.add_trace(go.Scatter(
-        x=recent.index,
-        y=rsi_series,
-        line=dict(color='#2563eb', width=2),
-        name='RSI'
-    ))
+    fig.add_trace(go.Scatter(x=recent.index, y=rsi))
 
     return fig
 
@@ -133,19 +113,21 @@ def build_rsi_chart(ticker: str) -> go.Figure:
 # Sidebar
 # =====================
 with st.sidebar:
-    st.markdown("## 📈 QuantAgent")
+    st.markdown("## 📈 QuantAgent India")
 
 # =====================
-# Main UI
+# Header
 # =====================
 st.markdown("""
-<div class="header-banner">
-    <h1>📈 QuantAgent India</h1>
-    <p>Multi-Agent AI Trading System</p>
+<div style="padding:20px;">
+<h1>📈 QuantAgent India</h1>
+<p style="color:#9ca3af;">AI-powered stock analysis platform</p>
 </div>
 """, unsafe_allow_html=True)
 
-# ✅ RESTORED FULL 25 STOCKS
+# =====================
+# STOCKS (ALL 25)
+# =====================
 STOCKS = [
     "RELIANCE", "TCS", "INFY", "HDFCBANK", "ICICIBANK",
     "HINDUNILVR", "SBIN", "BHARTIARTL", "WIPRO", "LT",
@@ -154,7 +136,7 @@ STOCKS = [
     "ULTRACEMCO", "NESTLEIND", "POWERGRID", "ONGC", "NTPC"
 ]
 
-col1, col2, col3 = st.columns([3, 1, 1])
+col1, col2, col3 = st.columns([3,1,1])
 
 with col1:
     selected_stock = st.selectbox("Select Stock", STOCKS)
@@ -165,44 +147,96 @@ with col2:
 with col3:
     run_button = st.button("▶ Run Analysis")
 
-st.markdown("<br>", unsafe_allow_html=True)
+st.markdown("---")
 
 # =====================
 # MAIN LOGIC
 # =====================
 if run_button:
-    with st.spinner(f"🤖 Running all agents for {selected_stock}..."):
+    progress = st.progress(0)
+
+    with st.spinner("Running AI Agents..."):
         try:
-            st.write("🚀 Running analysis...")
+            progress.progress(30)
+            st.write("Fetching data...")
+
+            progress.progress(60)
+            st.write("Running AI models...")
 
             result = run_decision_agent(selected_stock)
 
-            st.write("✅ Analysis complete")
+            progress.progress(100)
+            st.write("✅ Analysis Complete")
 
-            # 🎯 Decision UI
-            st.markdown("## 🎯 Final Trading Decision")
+            # 🎯 Decision Box
+            st.markdown("## 🎯 AI Trading Decision")
 
             if result['decision'] == "BUY":
-                st.success(f"BUY 📈 | Confidence: {result['confidence']}")
+                st.markdown(f"""
+                <div class="buy-box">
+                    <h1>BUY 📈</h1>
+                    <p>Confidence: {result['confidence']}</p>
+                </div>
+                """, unsafe_allow_html=True)
             else:
-                st.error(f"SELL 📉 | Confidence: {result['confidence']}")
+                st.markdown(f"""
+                <div class="sell-box">
+                    <h1>SELL 📉</h1>
+                    <p>Confidence: {result['confidence']}</p>
+                </div>
+                """, unsafe_allow_html=True)
 
-            # 📊 Metrics
+            # 📊 Metrics Cards
+            st.markdown("## 📊 Key Metrics")
+
             col1, col2, col3 = st.columns(3)
-            col1.metric("Risk Level", result['risk_level'])
-            col2.metric("Risk/Reward", result['risk_reward_ratio'])
-            col3.metric("Entry Price", f"₹{result['entry_price']}")
+
+            with col1:
+                st.markdown(f"""
+                <div class="card">
+                    <div class="small-text">Risk Level</div>
+                    <div class="metric">{result['risk_level']}</div>
+                </div>
+                """, unsafe_allow_html=True)
+
+            with col2:
+                st.markdown(f"""
+                <div class="card">
+                    <div class="small-text">Risk/Reward</div>
+                    <div class="metric">{result['risk_reward_ratio']}</div>
+                </div>
+                """, unsafe_allow_html=True)
+
+            with col3:
+                st.markdown(f"""
+                <div class="card">
+                    <div class="small-text">Entry Price</div>
+                    <div class="metric">₹{result['entry_price']}</div>
+                </div>
+                """, unsafe_allow_html=True)
 
             # 🧠 Reasoning
-            st.markdown("### 🧠 AI Reasoning")
-            st.info(result['reasoning'])
+            st.markdown("## 🧠 AI Reasoning")
+
+            st.markdown(f"""
+            <div class="card">
+            {result['reasoning']}
+            </div>
+            """, unsafe_allow_html=True)
 
             # 📉 Charts
-            price_chart = build_chart(selected_stock, result)
-            st.plotly_chart(price_chart, use_container_width=True)
+            st.markdown("## 📉 Market Analysis")
 
+            col1, col2 = st.columns([3,1])
+
+            price_chart = build_chart(selected_stock, result)
             rsi_chart = build_rsi_chart(selected_stock)
-            st.plotly_chart(rsi_chart, use_container_width=True)
+
+            with col1:
+                st.plotly_chart(price_chart, use_container_width=True)
+
+            with col2:
+                st.plotly_chart(rsi_chart, use_container_width=True)
 
         except Exception as e:
             st.error(f"❌ Error: {str(e)}")
@@ -210,7 +244,7 @@ if run_button:
 
 else:
     st.markdown("""
-    <div class="welcome-box">
+    <div class="card" style="text-align:center;">
         <h2>Welcome to QuantAgent India 🚀</h2>
         <p>Select a stock and click Run Analysis</p>
     </div>
