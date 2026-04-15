@@ -50,8 +50,8 @@ body { background-color: #0e1117; color: white; }
 # =====================
 def send_telegram_alert(message):
     try:
-        BOT_TOKEN = "YOUR_TOKEN"
-        CHAT_ID = "YOUR_CHAT_ID"
+        BOT_TOKEN = "8573595454:AAGnZr4AZnJc-Ai5zx0l71mMr5FxU7NNJuc"
+        CHAT_ID = "8548569849"
 
         url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
 
