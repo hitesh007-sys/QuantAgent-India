@@ -8,7 +8,14 @@ from generate_chart import describe_chart_pattern
 
 load_dotenv()
 
-client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+# Safe API Key Fetching
+try:
+    import streamlit as st
+    api_key = st.secrets["GROQ_API_KEY"]
+except Exception:
+    api_key = os.getenv("GROQ_API_KEY")
+
+client = Groq(api_key=api_key)
 
 PATTERN_LIBRARY = """
 1. Double Bottom (W shape) — bullish reversal
@@ -31,7 +38,6 @@ def analyze_pattern(ticker_name: str) -> str:
     Analyzes chart pattern for a stock using Groq LLM.
     Returns plain English pattern analysis.
     """
-    # Get chart description
     chart_description = describe_chart_pattern(ticker_name)
 
     prompt = f"""

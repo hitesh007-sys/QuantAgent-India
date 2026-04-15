@@ -4,16 +4,23 @@ import json
 sys.path.append('tools')
 sys.path.append('agents')
 
-from groq import Groq
 from dotenv import load_dotenv
 from compute_indicators import load_stock, compute_indicators, interpret_indicators
 from pattern_agent import analyze_pattern
 from trend_agent import compute_trendlines, analyze_trend
 from risk_agent import compute_risk, format_risk_summary
+from groq import Groq
 
 load_dotenv()
 
-client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+# Safe API Key Fetching for both Cloud and Local
+try:
+    import streamlit as st
+    api_key = st.secrets["GROQ_API_KEY"]
+except Exception:
+    api_key = os.getenv("GROQ_API_KEY")
+
+client = Groq(api_key=api_key)
 
 
 DECISION_PROMPT = """
@@ -35,16 +42,13 @@ TREND REPORT:
 Decision Rules:
 - Act only when at least 2 out of 3 reports agree.
 - If all 3 conflict, go with the trend direction.
-- Suggest a risk reward ratio between 1.2 and 1.8.
 - Explain reasoning in simple language a beginner can understand.
 
 You MUST respond ONLY as valid JSON like this:
 {{
   "decision": "BUY or SELL",
   "confidence": "High or Medium or Low",
-  "risk_reward_ratio": 1.5,
-  "reasoning": "2-3 sentence plain English explanation",
-  "risk_level": "Low or Medium or High"
+  "reasoning": "2-3 sentence plain English explanation"
 }}
 """
 
@@ -101,17 +105,16 @@ def run_decision_agent(ticker_name: str) -> dict:
         decision = {
             "decision": "BUY",
             "confidence": "Low",
-            "risk_reward_ratio": 1.5,
-            "reasoning": raw,
-            "risk_level": "High"
+            "reasoning": raw
         }
 
-    # Step 5 - Run Risk Agent
+    # Step 5 - Run Risk Agent (Now Dynamic!)
     entry_price = float(df['Close'].iloc[-1])
     risk_data = compute_risk(
         entry_price=entry_price,
         direction=decision['decision'],
-        rr_ratio=float(decision['risk_reward_ratio'])
+        support=trend_data['support'],
+        resistance=trend_data['resistance']
     )
 
     # Combine everything
@@ -119,9 +122,9 @@ def run_decision_agent(ticker_name: str) -> dict:
         "ticker":           ticker_name,
         "decision":         decision['decision'],
         "confidence":       decision['confidence'],
-        "risk_level":       decision['risk_level'],
+        "risk_level":       risk_data['risk_level'],
         "reasoning":        decision['reasoning'],
-        "risk_reward_ratio": decision['risk_reward_ratio'],
+        "risk_reward_ratio": risk_data['rr_ratio'],
         "entry_price":      risk_data['entry'],
         "stop_loss":        risk_data['stop_loss'],
         "take_profit":      risk_data['take_profit'],
@@ -134,40 +137,3 @@ def run_decision_agent(ticker_name: str) -> dict:
     }
 
     return result
-
-
-def format_final_output(result: dict) -> str:
-    """
-    Formats the final result in plain English
-    for display in chatbot or dashboard.
-    """
-    emoji = "🟢" if result['decision'] == "BUY" else "🔴"
-
-    output = f"""
-{'='*50}
-{emoji} STOCK: {result['ticker']}
-{'='*50}
-DECISION:    {result['decision']}
-CONFIDENCE:  {result['confidence']}
-RISK LEVEL:  {result['risk_level']}
-
-REASONING:
-{result['reasoning']}
-
-TRADE SETUP:
-  Entry Price:      ₹{result['entry_price']}
-  Stop Loss:        ₹{result['stop_loss']}
-  Take Profit:      ₹{result['take_profit']}
-  Risk/Reward:      {result['risk_reward_ratio']}
-  Potential Profit: ₹{result['potential_profit']}
-  Potential Loss:   ₹{result['potential_loss']}
-
-TECHNICAL DATA:
-  Trend:      {result['trend']}
-  Support:    ₹{result['support']}
-  Resistance: ₹{result['resistance']}
-  RSI:        {result['indicators']['RSI']}
-  MACD:       {result['indicators']['MACD']}
-{'='*50}
-"""
-    return output.strip()

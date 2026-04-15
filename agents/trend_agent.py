@@ -9,7 +9,14 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+# Safe API Key Fetching
+try:
+    import streamlit as st
+    api_key = st.secrets["GROQ_API_KEY"]
+except Exception:
+    api_key = os.getenv("GROQ_API_KEY")
+
+client = Groq(api_key=api_key)
 
 
 def load_clean_data(ticker_name: str, n_bars: int = 40) -> pd.DataFrame:
@@ -17,9 +24,7 @@ def load_clean_data(ticker_name: str, n_bars: int = 40) -> pd.DataFrame:
     path = f"data/{ticker_name}_daily.csv"
     df = pd.read_csv(path)
 
-    if df.iloc[0].astype(str).str.contains(
-        'Ticker|Price|RELIANCE|TCS'
-    ).any():
+    if df.iloc[0].astype(str).str.contains('Ticker|Price|RELIANCE|TCS').any():
         df = df.iloc[1:].reset_index(drop=True)
 
     df.columns = [c.strip() for c in df.columns]
@@ -40,7 +45,6 @@ def load_clean_data(ticker_name: str, n_bars: int = 40) -> pd.DataFrame:
 def compute_trendlines(ticker_name: str, n_bars: int = 40) -> dict:
     """
     Computes support and resistance trendlines using OLS regression.
-    Returns trend data as dictionary.
     """
     df = load_clean_data(ticker_name, n_bars)
 
@@ -49,14 +53,11 @@ def compute_trendlines(ticker_name: str, n_bars: int = 40) -> dict:
     lows   = df["Low"].values
     closes = df["Close"].values
 
-    # OLS regression on highs and lows
     mr, br = np.polyfit(x, highs, 1)
     ms, bs = np.polyfit(x, lows, 1)
 
-    # Average slope
     kappa = (mr + ms) / 2
 
-    # Classify trend
     if kappa > 0.001:
         trend = "Uptrend"
     elif kappa < -0.001:
@@ -64,17 +65,14 @@ def compute_trendlines(ticker_name: str, n_bars: int = 40) -> dict:
     else:
         trend = "Sideways"
 
-    # Current support and resistance values
     last_idx     = len(df) - 1
     support_val  = round(float(ms * last_idx + bs), 2)
     resist_val   = round(float(mr * last_idx + br), 2)
     current_price = round(float(closes[-1]), 2)
 
-    # Check if price is near support or resistance
     near_support  = abs(current_price - support_val) / current_price < 0.02
     near_resist   = abs(current_price - resist_val) / current_price < 0.02
 
-    # Check if lines are converging
     gap_start = float((mr * 0 + br) - (ms * 0 + bs))
     gap_end   = float((mr * last_idx + br) - (ms * last_idx + bs))
     converging = gap_end < gap_start * 0.7
@@ -94,7 +92,6 @@ def compute_trendlines(ticker_name: str, n_bars: int = 40) -> dict:
 def analyze_trend(ticker_name: str) -> str:
     """
     Analyzes trend using Groq LLM.
-    Returns plain English trend analysis.
     """
     trend_data = compute_trendlines(ticker_name)
 
