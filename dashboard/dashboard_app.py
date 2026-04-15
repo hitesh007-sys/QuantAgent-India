@@ -64,11 +64,17 @@ def send_telegram_alert(message):
         pass
 
 # =====================
-# DATA
+# DATA WITH TIMEFRAME
 # =====================
-def load_stock_data(ticker):
+def load_stock_data(ticker, timeframe):
     try:
-        df = yf.download(f"{ticker}.NS", period="3mo", interval="1d")
+        if timeframe == "Daily":
+            interval = "1d"
+        else:
+            interval = "1wk"
+
+        df = yf.download(f"{ticker}.NS", period="3mo", interval=interval)
+
         if not df.empty:
             return df[['Open','High','Low','Close','Volume']]
     except:
@@ -107,14 +113,17 @@ STOCKS = [
     "ULTRACEMCO","NESTLEIND","POWERGRID","ONGC","NTPC"
 ]
 
-selected_stock = st.selectbox("Select Stock", STOCKS)
+col1, col2 = st.columns(2)
+
+selected_stock = col1.selectbox("Select Stock", STOCKS)
+timeframe = col2.selectbox("Timeframe", ["Daily", "Weekly"])
 
 if st.button("Run Analysis"):
 
     st.write("⏳ Running analysis...")
 
     # =====================
-    # SAFE AGENT EXECUTION
+    # SAFE AGENT
     # =====================
     try:
         start = time.time()
@@ -141,12 +150,12 @@ if st.button("Run Analysis"):
     if result["decision"] == "BUY":
         st.markdown(f"<div class='buy-box'>BUY 📈<br>{result['confidence']}</div>", unsafe_allow_html=True)
         st.toast("BUY Signal")
-        send_telegram_alert(f"BUY {selected_stock}")
+        send_telegram_alert(f"BUY {selected_stock} ({timeframe})")
 
     else:
         st.markdown(f"<div class='sell-box'>SELL 📉<br>{result['confidence']}</div>", unsafe_allow_html=True)
         st.toast("SELL Signal")
-        send_telegram_alert(f"SELL {selected_stock}")
+        send_telegram_alert(f"SELL {selected_stock} ({timeframe})")
 
     st.write("Risk:", result["risk_level"])
     st.write("RR:", result["risk_reward_ratio"])
@@ -154,9 +163,9 @@ if st.button("Run Analysis"):
     st.write(result["reasoning"])
 
     # =====================
-    # CHART
+    # CHART WITH TIMEFRAME
     # =====================
-    df = load_stock_data(selected_stock)
+    df = load_stock_data(selected_stock, timeframe)
 
     if not df.empty:
         st.plotly_chart(build_chart(df), use_container_width=True)
