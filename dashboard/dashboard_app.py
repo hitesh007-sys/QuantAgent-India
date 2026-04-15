@@ -26,7 +26,7 @@ body { background-color: #0e1117; color: white; }
     background-color: #161b22;
     padding: 20px;
     border-radius: 12px;
-    margin-bottom: 15px;
+    text-align: center;
 }
 
 .buy-box {
@@ -34,6 +34,7 @@ body { background-color: #0e1117; color: white; }
     padding: 25px;
     border-radius: 12px;
     text-align: center;
+    font-size: 20px;
 }
 
 .sell-box {
@@ -41,12 +42,13 @@ body { background-color: #0e1117; color: white; }
     padding: 25px;
     border-radius: 12px;
     text-align: center;
+    font-size: 20px;
 }
 </style>
 """, unsafe_allow_html=True)
 
 # =====================
-# 📡 TELEGRAM (SAFE)
+# 📡 TELEGRAM SAFE
 # =====================
 def send_telegram_alert(message):
     try:
@@ -55,35 +57,24 @@ def send_telegram_alert(message):
 
         url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
 
-        requests.post(
-            url,
-            data={"chat_id": CHAT_ID, "text": message},
-            timeout=3
-        )
+        requests.post(url, data={"chat_id": CHAT_ID, "text": message}, timeout=3)
     except:
         pass
 
 # =====================
-# DATA WITH TIMEFRAME
+# 📊 DATA
 # =====================
 def load_stock_data(ticker, timeframe):
+    interval = "1d" if timeframe == "Daily" else "1wk"
+
     try:
-        if timeframe == "Daily":
-            interval = "1d"
-        else:
-            interval = "1wk"
-
         df = yf.download(f"{ticker}.NS", period="3mo", interval=interval)
-
-        if not df.empty:
-            return df[['Open','High','Low','Close','Volume']]
+        return df[['Open','High','Low','Close','Volume']]
     except:
-        pass
-
-    return pd.DataFrame()
+        return pd.DataFrame()
 
 # =====================
-# CHART
+# 📈 CHART
 # =====================
 def build_chart(df):
     fig = go.Figure()
@@ -97,6 +88,22 @@ def build_chart(df):
     ))
 
     fig.update_layout(template="plotly_dark", height=500)
+
+    return fig
+
+# =====================
+# 📉 RSI
+# =====================
+def build_rsi_chart(df):
+    rsi = ta.momentum.RSIIndicator(df['Close'], 14).rsi()
+
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=df.index, y=rsi))
+
+    fig.add_hline(y=70)
+    fig.add_hline(y=30)
+
+    fig.update_layout(template="plotly_dark", height=250)
 
     return fig
 
@@ -118,7 +125,12 @@ col1, col2 = st.columns(2)
 selected_stock = col1.selectbox("Select Stock", STOCKS)
 timeframe = col2.selectbox("Timeframe", ["Daily", "Weekly"])
 
-if st.button("Run Analysis"):
+st.markdown("---")
+
+# =====================
+# RUN
+# =====================
+if st.button("▶ Run Analysis"):
 
     st.write("⏳ Running analysis...")
 
@@ -141,31 +153,60 @@ if st.button("Run Analysis"):
             "risk_level": "Medium",
             "risk_reward_ratio": "1:1",
             "entry_price": 1000,
-            "reasoning": "Fallback result due to timeout"
+            "reasoning": "Fallback result"
         }
 
     # =====================
-    # DISPLAY
+    # DECISION BOX
     # =====================
     if result["decision"] == "BUY":
         st.markdown(f"<div class='buy-box'>BUY 📈<br>{result['confidence']}</div>", unsafe_allow_html=True)
-        st.toast("BUY Signal")
-        send_telegram_alert(f"BUY {selected_stock} ({timeframe})")
+        send_telegram_alert(f"BUY {selected_stock}")
 
     else:
         st.markdown(f"<div class='sell-box'>SELL 📉<br>{result['confidence']}</div>", unsafe_allow_html=True)
-        st.toast("SELL Signal")
-        send_telegram_alert(f"SELL {selected_stock} ({timeframe})")
+        send_telegram_alert(f"SELL {selected_stock}")
 
-    st.write("Risk:", result["risk_level"])
-    st.write("RR:", result["risk_reward_ratio"])
-    st.write("Entry:", result["entry_price"])
+    # =====================
+    # CARDS (FIXED UI)
+    # =====================
+    col1, col2, col3 = st.columns(3)
+
+    col1.markdown(f"""
+    <div class="card">
+    <h4>⚠️ Risk</h4>
+    <h2>{result['risk_level']}</h2>
+    </div>
+    """, unsafe_allow_html=True)
+
+    col2.markdown(f"""
+    <div class="card">
+    <h4>📊 RR Ratio</h4>
+    <h2>{result['risk_reward_ratio']}</h2>
+    </div>
+    """, unsafe_allow_html=True)
+
+    col3.markdown(f"""
+    <div class="card">
+    <h4>💰 Entry</h4>
+    <h2>₹{result['entry_price']}</h2>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # =====================
+    # REASONING
+    # =====================
+    st.markdown("## 🧠 AI Reasoning")
     st.write(result["reasoning"])
 
     # =====================
-    # CHART WITH TIMEFRAME
+    # CHARTS
     # =====================
     df = load_stock_data(selected_stock, timeframe)
 
     if not df.empty:
+        st.markdown("## 📈 Price Chart")
         st.plotly_chart(build_chart(df), use_container_width=True)
+
+        st.markdown("## 📉 RSI")
+        st.plotly_chart(build_rsi_chart(df), use_container_width=True)
