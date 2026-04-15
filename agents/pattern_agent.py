@@ -1,21 +1,19 @@
-import os
 import sys
 sys.path.append('tools')
 
+import streamlit as st
 from groq import Groq
-from dotenv import load_dotenv
 from generate_chart import describe_chart_pattern
 
-load_dotenv()
 
-# Safe API Key Fetching
-try:
-    import streamlit as st
-    api_key = st.secrets["GROQ_API_KEY"]
-except Exception:
-    api_key = os.getenv("GROQ_API_KEY")
+# ✅ Ensure API key exists (important for deployment)
+if "GROQ_API_KEY" not in st.secrets:
+    st.error("❌ GROQ_API_KEY not found in Streamlit Secrets. Please add it.")
+    st.stop()
 
-client = Groq(api_key=api_key)
+# ✅ Correct way to initialize client in Streamlit Cloud
+client = Groq(api_key=st.secrets["GROQ_API_KEY"])
+
 
 PATTERN_LIBRARY = """
 1. Double Bottom (W shape) — bullish reversal
@@ -33,11 +31,13 @@ PATTERN_LIBRARY = """
 13. Sideways Rectangle — no clear direction
 """
 
+
 def analyze_pattern(ticker_name: str) -> str:
     """
     Analyzes chart pattern for a stock using Groq LLM.
     Returns plain English pattern analysis.
     """
+
     chart_description = describe_chart_pattern(ticker_name)
 
     prompt = f"""
