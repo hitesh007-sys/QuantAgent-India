@@ -8,7 +8,7 @@ import plotly.graph_objects as go
 import pandas as pd
 import ta
 from dotenv import load_dotenv
-from decision_agent import run_decision_agent
+from agents.decision_agent import run_decision_agent
 load_dotenv()
 
 st.set_page_config(
