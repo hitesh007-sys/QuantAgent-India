@@ -24,12 +24,16 @@ PATTERN_LIBRARY = """
 
 # ✅ Lazy loading client (CRITICAL FIX)
 def get_client():
-    if "GROQ_API_KEY" not in st.secrets:
-        st.error("❌ GROQ_API_KEY not found in Streamlit Secrets.")
-        st.stop()
-
+    import os
     from groq import Groq
-    return Groq(api_key=st.secrets["GROQ_API_KEY"])
+    from dotenv import load_dotenv
+    load_dotenv()
+    try:
+        import streamlit as st
+        api_key = st.secrets["GROQ_API_KEY"]
+    except Exception:
+        api_key = os.getenv("GROQ_API_KEY")
+    return Groq(api_key=api_key)
 
 
 def analyze_pattern(ticker_name: str) -> str:
@@ -61,7 +65,7 @@ Reply in 3 short sentences maximum. Be specific and clear.
 """
 
     # ✅ Debug visibility (optional but helpful)
-    st.write("🔍 Analyzing pattern...")
+
 
     response = client.chat.completions.create(
         model="llama-3.3-70b-versatile",

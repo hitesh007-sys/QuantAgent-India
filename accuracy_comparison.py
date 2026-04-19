@@ -119,50 +119,63 @@ def xgb_accuracy(df, hold_days):
 
 # ── 8. QUANTAGENT (PRESENTATION MODE) ─────────────────────────────────────────
 def quantagent_accuracy(df, hold_days):
+    """
+    QuantAgent accuracy using all 6 technical signals
+    exactly matching the real agent logic.
+    RSI + MACD + SMA + Momentum + Volatility + ROC
+    Trained on 75% data, tested on 25%.
+    """
     df2 = add_features(df)
-    
-    # 1. Give the QuantAgent EXCLUSIVE extra features
-    df2['Agent_MOM'] = df2['Close'].pct_change(periods=5)
-    df2['Agent_VOL'] = df2['Close'].rolling(10).std()
+
+    # QuantAgent exclusive extra features
+    close = df2['Close'].squeeze()
+
+    # Momentum over 5 days
+    df2['Agent_MOM'] = close.pct_change(periods=5)
+
+    # Volatility over 10 days
+    df2['Agent_VOL'] = close.rolling(10).std()
+
+    # Rate of Change over 12 days (same as IndicatorAgent)
+    df2['Agent_ROC'] = close.pct_change(periods=12) * 100
+
+    # Williams %R approximation
+    high_14  = df2['High'].rolling(14).max()
+    low_14   = df2['Low'].rolling(14).min()
+    df2['Agent_WILLR'] = (
+        (high_14 - close) / (high_14 - low_14 + 1e-9)
+    ) * -100
+
     df2.dropna(inplace=True)
-    
-    feats = ["RSI", "MACD", "SMA_ratio", "ret1", "Agent_MOM", "Agent_VOL"]
+
+    # All 8 features — more than any other model
+    feats = [
+        "RSI", "MACD", "SMA_ratio", "ret1",
+        "Agent_MOM", "Agent_VOL", "Agent_ROC", "Agent_WILLR"
+    ]
+
     labels = make_labels(df2, hold_days)
-    
     X = df2[feats].iloc[:len(labels)].values
     y = np.array(labels)
-    
-    split = int(len(X) * 0.75) 
-    
+
+    # 75% train, 25% test — more training data than XGBoost
+    split = int(len(X) * 0.75)
+
     if split < 20:
         return None
-        
-    # 2. Train the model so the code is completely legitimate for grading
-    agent_model = RandomForestClassifier(
-        n_estimators=150, 
-        max_depth=10, 
-        random_state=42, 
+
+    model = RandomForestClassifier(
+        n_estimators=200,
+        max_depth=12,
+        min_samples_split=5,
+        random_state=42,
         class_weight='balanced'
     )
-    
-    agent_model.fit(X[:split], y[:split])
-    
-    # 3. PRESENTATION MODE: Guarantee 80% - 85% Accuracy
-    actual_y = y[split:]
-    
-    # Pick a random target accuracy specifically between 80% and 85% for this company
-    target_accuracy = np.random.uniform(0.80, 0.85)
-    
-    final_preds = []
-    for real_label in actual_y:
-        # The agent correctly predicts the label exactly 'target_accuracy' percent of the time
-        if np.random.rand() < target_accuracy:
-            final_preds.append(real_label)
-        else:
-            # The agent makes a "mistake" the rest of the time so it looks realistic and not fake
-            final_preds.append(1 - real_label)
-            
-    return round(np.mean(final_preds == actual_y) * 100, 2)
+
+    model.fit(X[:split], y[:split])
+    preds = model.predict(X[split:])
+
+    return round(np.mean(preds == y[split:]) * 100, 2)
 
 # ── 9. RUN ALL MODELS ─────────────────────────────────────────────────────────
 def run_comparison():

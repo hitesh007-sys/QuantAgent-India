@@ -30,7 +30,9 @@ client = Groq(api_key=api_key)
 # PROMPT
 # =====================
 DECISION_PROMPT = """
-You are an expert trading analyst.
+You are an expert high-frequency trading analyst for Indian stock markets.
+You MUST issue either BUY or SELL. HOLD is not allowed.
+Forecast horizon: next 3 candlesticks.
 
 INDICATOR REPORT:
 {indicator_summary}
@@ -41,13 +43,19 @@ PATTERN REPORT:
 TREND REPORT:
 {trend_summary}
 
-Give BUY or SELL only.
+Decision Rules:
+- Act only when at least 2 out of 3 reports agree.
+- If all 3 conflict go with the trend direction.
+- Suggest a risk reward ratio between 1.2 and 1.8.
+- Explain reasoning in simple language a beginner can understand.
 
-Respond in JSON:
+Respond ONLY as valid JSON:
 {{
- "decision": "BUY or SELL",
- "confidence": "High/Medium/Low",
- "reasoning": "short explanation"
+  "decision": "BUY or SELL",
+  "confidence": "High or Medium or Low",
+  "risk_reward_ratio": 1.5,
+  "reasoning": "2-3 sentence plain English explanation",
+  "risk_level": "Low or Medium or High"
 }}
 """
 
@@ -104,7 +112,7 @@ def run_decision_agent(ticker_name: str) -> dict:
         # =====================
         # TIMEOUT CHECK
         # =====================
-        if time.time() - start > 8:
+        if time.time() - start > 45:
             return fallback(ticker_name)
 
         # =====================

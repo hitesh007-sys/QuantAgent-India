@@ -6,7 +6,7 @@ sys.path.append('agents')
 import streamlit as st
 from groq import Groq
 from dotenv import load_dotenv
-from decision_agent import run_decision_agent, format_final_output
+from decision_agent import run_decision_agent
 
 load_dotenv()
 
